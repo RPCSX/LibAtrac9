@@ -6,20 +6,74 @@
 #include "tables.h"
 #include "unpack.h"
 #include "utility.h"
+#include <stdint.h>
 #include <string.h>
+#include <limits.h>
+
 
 static At9Status DecodeFrame(Frame* frame, BitReaderCxt* br);
 static void ImdctBlock(Block* block);
 static void ApplyIntensityStereo(Block* block);
-static void PcmFloatToShort(Frame* frame, short* pcmOut);
+static void PcmFloatToS16(Frame* frame, int16_t* pcmOut);
+static void PcmFloatToS32(Frame* frame, int32_t* pcmOut);
+static void PcmFloatToF32(Frame* frame, float* pcmOut);
+static void PcmFloatToF64(Frame* frame, double* pcmOut);
 
-At9Status Decode(Atrac9Handle* handle, const unsigned char* audio, unsigned char* pcm, int* bytesUsed)
+static int16_t ClampS16(int32_t value)
+{
+	if (value > INT16_MAX)
+		return INT16_MAX;
+	if (value < INT16_MIN)
+		return INT16_MIN;
+	return (int16_t)value;
+}
+static int RoundDouble(double x)
+{
+	x += 0.5;
+	return (int)x - (x < (int)x);
+}
+
+
+At9Status DecodeS16(Atrac9Handle* handle, const void* audio, void* pcm, int* bytesUsed)
 {
 	BitReaderCxt br;
 	InitBitReaderCxt(&br, audio);
 	ERROR_CHECK(DecodeFrame(&handle->Frame, &br));
 
-	PcmFloatToShort(&handle->Frame, (short*)pcm);
+	PcmFloatToS16(&handle->Frame, (int16_t*)pcm);
+
+	*bytesUsed = br.Position / 8;
+	return ERR_SUCCESS;
+}
+At9Status DecodeS32(Atrac9Handle* handle, const void* audio, void* pcm, int* bytesUsed)
+{
+	BitReaderCxt br;
+	InitBitReaderCxt(&br, audio);
+	ERROR_CHECK(DecodeFrame(&handle->Frame, &br));
+
+	PcmFloatToS32(&handle->Frame, (int32_t*)pcm);
+
+	*bytesUsed = br.Position / 8;
+	return ERR_SUCCESS;
+}
+At9Status DecodeF32(Atrac9Handle* handle, const void* audio, void* pcm, int* bytesUsed)
+{
+	BitReaderCxt br;
+	InitBitReaderCxt(&br, audio);
+	ERROR_CHECK(DecodeFrame(&handle->Frame, &br));
+
+	PcmFloatToF32(&handle->Frame, (float*)pcm);
+
+	*bytesUsed = br.Position / 8;
+	return ERR_SUCCESS;
+}
+At9Status DecodeF64(Atrac9Handle* handle, const void* audio, void* pcm, int* bytesUsed)
+{
+	BitReaderCxt br;
+	InitBitReaderCxt(&br, audio);
+	ERROR_CHECK(DecodeFrame(&handle->Frame, &br));
+
+	PcmFloatToF64(&handle->Frame, (double*)pcm);
 
 	*bytesUsed = br.Position / 8;
 	return ERR_SUCCESS;
@@ -43,7 +97,7 @@ static At9Status DecodeFrame(Frame* frame, BitReaderCxt* br)
 	return ERR_SUCCESS;
 }
 
-void PcmFloatToShort(Frame* frame, short* pcmOut)
+void PcmFloatToS16(Frame* frame, int16_t* pcmOut)
 {
 	const int channelCount = frame->Config->ChannelCount;
 	const int sampleCount = frame->Config->FrameSamples;
@@ -54,7 +108,55 @@ void PcmFloatToShort(Frame* frame, short* pcmOut)
 	{
 		for (int ch = 0; ch < channelCount; ch++, i++)
 		{
-			pcmOut[i] = Clamp16(Round(channels[ch]->Pcm[smpl]));
+			pcmOut[i] = ClampS16(RoundDouble(channels[ch]->Pcm[smpl]));
+		}
+	}
+}
+
+void PcmFloatToS32(Frame* frame, int32_t* pcmOut)
+{
+	const int channelCount = frame->Config->ChannelCount;
+	const int sampleCount = frame->Config->FrameSamples;
+	Channel** channels = frame->Channels;
+	int i = 0;
+
+	for (int smpl = 0; smpl < sampleCount; smpl++)
+	{
+		for (int ch = 0; ch < channelCount; ch++, i++)
+		{
+			pcmOut[i] = RoundDouble(channels[ch]->Pcm[smpl]);
+		}
+	}
+}
+
+void PcmFloatToF32(Frame* frame, float* pcmOut)
+{
+	const int channelCount = frame->Config->ChannelCount;
+	const int sampleCount = frame->Config->FrameSamples;
+	Channel** channels = frame->Channels;
+	int i = 0;
+
+	for (int smpl = 0; smpl < sampleCount; smpl++)
+	{
+		for (int ch = 0; ch < channelCount; ch++, i++)
+		{
+			pcmOut[i] = (float)channels[ch]->Pcm[smpl];
+		}
+	}
+}
+
+void PcmFloatToF64(Frame* frame, double* pcmOut)
+{
+	const int channelCount = frame->Config->ChannelCount;
+	const int sampleCount = frame->Config->FrameSamples;
+	Channel** channels = frame->Channels;
+	int i = 0;
+
+	for (int smpl = 0; smpl < sampleCount; smpl++)
+	{
+		for (int ch = 0; ch < channelCount; ch++, i++)
+		{
+			pcmOut[i] = channels[ch]->Pcm[smpl];
 		}
 	}
 }

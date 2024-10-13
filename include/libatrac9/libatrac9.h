@@ -26,11 +26,18 @@ typedef struct {
 	unsigned char configData[ATRAC9_CONFIG_DATA_SIZE];
 } Atrac9CodecInfo;
 
+typedef enum {
+	kAtrac9FormatS16,
+	kAtrac9FormatS32,
+	kAtrac9FormatF32,
+	kAtrac9FormatF64,
+} Atrac9Format;
+
 DLLEXPORT void* Atrac9GetHandle(void);
 DLLEXPORT void Atrac9ReleaseHandle(void* handle);
 
 DLLEXPORT int Atrac9InitDecoder(void* handle, unsigned char *pConfigData);
-DLLEXPORT int Atrac9Decode(void* handle, const unsigned char *pAtrac9Buffer, short *pPcmBuffer, int *pNBytesUsed);
+DLLEXPORT int Atrac9Decode(void* handle, const void *pAtrac9Buffer, void *pPcmBuffer, Atrac9Format format, int *pNBytesUsed);
 
 DLLEXPORT int Atrac9GetCodecInfo(void* handle, Atrac9CodecInfo *pCodecInfo);
 
