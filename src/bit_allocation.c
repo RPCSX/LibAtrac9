@@ -7,17 +7,17 @@ static unsigned char GradientCurves[48][48];
 
 At9Status CreateGradient(Block* block)
 {
-	int valueCount = block->GradientEndValue - block->GradientStartValue;
-	int unitCount = block->GradientEndUnit - block->GradientStartUnit;
+	int valueCount = block->gradientEndValue - block->gradientStartValue;
+	int unitCount = block->gradientEndUnit - block->gradientStartUnit;
 
-	for (int i = 0; i < block->GradientEndUnit; i++)
+	for (int i = 0; i < block->gradientEndUnit; i++)
 	{
-		block->Gradient[i] = block->GradientStartValue;
+		block->gradient[i] = block->gradientStartValue;
 	}
 
-	for (int i = block->GradientEndUnit; i <= block->QuantizationUnitCount; i++)
+	for (int i = block->gradientEndUnit; i <= block->quantizationUnitCount; i++)
 	{
-		block->Gradient[i] = block->GradientEndValue;
+		block->gradient[i] = block->gradientEndValue;
 	}
 	if (unitCount <= 0) return ERR_SUCCESS;
 	if (valueCount == 0) return ERR_SUCCESS;
@@ -26,19 +26,19 @@ At9Status CreateGradient(Block* block)
 	if (valueCount <= 0)
 	{
 		double scale = (-valueCount - 1) / 31.0;
-		int baseVal = block->GradientStartValue - 1;
-		for (int i = block->GradientStartUnit; i < block->GradientEndUnit; i++)
+		int baseVal = block->gradientStartValue - 1;
+		for (int i = block->gradientStartUnit; i < block->gradientEndUnit; i++)
 		{
-			block->Gradient[i] = baseVal - (int)(curve[i - block->GradientStartUnit] * scale);
+			block->gradient[i] = baseVal - (int)(curve[i - block->gradientStartUnit] * scale);
 		}
 	}
 	else
 	{
 		double scale = (valueCount - 1) / 31.0;
-		int baseVal = block->GradientStartValue + 1;
-		for (int i = block->GradientStartUnit; i < block->GradientEndUnit; i++)
+		int baseVal = block->gradientStartValue + 1;
+		for (int i = block->gradientStartUnit; i < block->gradientEndUnit; i++)
 		{
-			block->Gradient[i] = baseVal + (int)(curve[i - block->GradientStartUnit] * scale);
+			block->gradient[i] = baseVal + (int)(curve[i - block->gradientStartUnit] * scale);
 		}
 	}
 
@@ -47,42 +47,42 @@ At9Status CreateGradient(Block* block)
 
 void CalculateMask(Channel* channel)
 {
-	memset(channel->PrecisionMask, 0, sizeof(channel->PrecisionMask));
-	for (int i = 1; i < channel->Block->QuantizationUnitCount; i++)
+	memset(channel->precisionMask, 0, sizeof(channel->precisionMask));
+	for (int i = 1; i < channel->block->quantizationUnitCount; i++)
 	{
-		const int delta = channel->ScaleFactors[i] - channel->ScaleFactors[i - 1];
+		const int delta = channel->scaleFactors[i] - channel->scaleFactors[i - 1];
 		if (delta > 1)
 		{
-			channel->PrecisionMask[i] += Min(delta - 1, 5);
+			channel->precisionMask[i] += Min(delta - 1, 5);
 		}
 		else if (delta < -1)
 		{
-			channel->PrecisionMask[i - 1] += Min(delta * -1 - 1, 5);
+			channel->precisionMask[i - 1] += Min(delta * -1 - 1, 5);
 		}
 	}
 }
 
 void CalculatePrecisions(Channel* channel)
 {
-	Block* block = channel->Block;
+	Block* block = channel->block;
 
-	if (block->GradientMode != 0)
+	if (block->gradientMode != 0)
 	{
-		for (int i = 0; i < block->QuantizationUnitCount; i++)
+		for (int i = 0; i < block->quantizationUnitCount; i++)
 		{
-			channel->Precisions[i] = channel->ScaleFactors[i] + channel->PrecisionMask[i] - block->Gradient[i];
-			if (channel->Precisions[i] > 0)
+			channel->precisions[i] = channel->scaleFactors[i] + channel->precisionMask[i] - block->gradient[i];
+			if (channel->precisions[i] > 0)
 			{
-				switch (block->GradientMode)
+				switch (block->gradientMode)
 				{
 				case 1:
-					channel->Precisions[i] /= 2;
+					channel->precisions[i] /= 2;
 					break;
 				case 2:
-					channel->Precisions[i] = 3 * channel->Precisions[i] / 8;
+					channel->precisions[i] = 3 * channel->precisions[i] / 8;
 					break;
 				case 3:
-					channel->Precisions[i] /= 4;
+					channel->precisions[i] /= 4;
 					break;
 				}
 			}
@@ -90,32 +90,32 @@ void CalculatePrecisions(Channel* channel)
 	}
 	else
 	{
-		for (int i = 0; i < block->QuantizationUnitCount; i++)
+		for (int i = 0; i < block->quantizationUnitCount; i++)
 		{
-			channel->Precisions[i] = channel->ScaleFactors[i] - block->Gradient[i];
+			channel->precisions[i] = channel->scaleFactors[i] - block->gradient[i];
 		}
 	}
 
-	for (int i = 0; i < block->QuantizationUnitCount; i++)
+	for (int i = 0; i < block->quantizationUnitCount; i++)
 	{
-		if (channel->Precisions[i] < 1)
+		if (channel->precisions[i] < 1)
 		{
-			channel->Precisions[i] = 1;
+			channel->precisions[i] = 1;
 		}
 	}
 
-	for (int i = 0; i < block->GradientBoundary; i++)
+	for (int i = 0; i < block->gradientBoundary; i++)
 	{
-		channel->Precisions[i]++;
+		channel->precisions[i]++;
 	}
 
-	for (int i = 0; i < block->QuantizationUnitCount; i++)
+	for (int i = 0; i < block->quantizationUnitCount; i++)
 	{
-		channel->PrecisionsFine[i] = 0;
-		if (channel->Precisions[i] > 15)
+		channel->precisionsFine[i] = 0;
+		if (channel->precisions[i] > 15)
 		{
-			channel->PrecisionsFine[i] = channel->Precisions[i] - 15;
-			channel->Precisions[i] = 15;
+			channel->precisionsFine[i] = channel->precisions[i] - 15;
+			channel->precisions[i] = 15;
 		}
 	}
 }

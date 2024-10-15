@@ -11,12 +11,12 @@ static void ReadVlcDeltaOffsetWithBaseline(Channel* channel, BitReaderCxt* br, c
 
 At9Status ReadScaleFactors(Channel * channel, BitReaderCxt * br)
 {
-	memset(channel->ScaleFactors, 0, sizeof(channel->ScaleFactors));
+	memset(channel->scaleFactors, 0, sizeof(channel->scaleFactors));
 
-	channel->ScaleFactorCodingMode = ReadInt(br, 2);
-	if (channel->ChannelIndex == 0)
+	channel->scaleFactorCodingMode = ReadInt(br, 2);
+	if (channel->channelIndex == 0)
 	{
-		switch (channel->ScaleFactorCodingMode)
+		switch (channel->scaleFactorCodingMode)
 		{
 		case 0:
 			ReadVlcDeltaOffset(channel, br);
@@ -25,44 +25,44 @@ At9Status ReadScaleFactors(Channel * channel, BitReaderCxt * br)
 			ReadClcOffset(channel, br);
 			break;
 		case 2:
-			if (channel->Block->FirstInSuperframe) return ERR_UNPACK_SCALE_FACTOR_MODE_INVALID;
-			ReadVlcDistanceToBaseline(channel, br, channel->ScaleFactorsPrev, channel->Block->QuantizationUnitsPrev);
+			if (channel->block->firstInSuperframe) return ERR_UNPACK_SCALE_FACTOR_MODE_INVALID;
+			ReadVlcDistanceToBaseline(channel, br, channel->scaleFactorsPrev, channel->block->quantizationUnitsPrev);
 			break;
 		case 3:
-			if (channel->Block->FirstInSuperframe) return ERR_UNPACK_SCALE_FACTOR_MODE_INVALID;
-			ReadVlcDeltaOffsetWithBaseline(channel, br, channel->ScaleFactorsPrev, channel->Block->QuantizationUnitsPrev);
+			if (channel->block->firstInSuperframe) return ERR_UNPACK_SCALE_FACTOR_MODE_INVALID;
+			ReadVlcDeltaOffsetWithBaseline(channel, br, channel->scaleFactorsPrev, channel->block->quantizationUnitsPrev);
 			break;
 		}
 	}
 	else
 	{
-		switch (channel->ScaleFactorCodingMode)
+		switch (channel->scaleFactorCodingMode)
 		{
 		case 0:
 			ReadVlcDeltaOffset(channel, br);
 			break;
 		case 1:
-			ReadVlcDistanceToBaseline(channel, br, channel->Block->Channels[0].ScaleFactors, channel->Block->ExtensionUnit);
+			ReadVlcDistanceToBaseline(channel, br, channel->block->channels[0].scaleFactors, channel->block->extensionUnit);
 			break;
 		case 2:
-			ReadVlcDeltaOffsetWithBaseline(channel, br, channel->Block->Channels[0].ScaleFactors, channel->Block->ExtensionUnit);
+			ReadVlcDeltaOffsetWithBaseline(channel, br, channel->block->channels[0].scaleFactors, channel->block->extensionUnit);
 			break;
 		case 3:
-			if (channel->Block->FirstInSuperframe) return ERR_UNPACK_SCALE_FACTOR_MODE_INVALID;
-			ReadVlcDistanceToBaseline(channel, br, channel->ScaleFactorsPrev, channel->Block->QuantizationUnitsPrev);
+			if (channel->block->firstInSuperframe) return ERR_UNPACK_SCALE_FACTOR_MODE_INVALID;
+			ReadVlcDistanceToBaseline(channel, br, channel->scaleFactorsPrev, channel->block->quantizationUnitsPrev);
 			break;
 		}
 	}
 
-	for (int i = 0; i < channel->Block->ExtensionUnit; i++)
+	for (int i = 0; i < channel->block->extensionUnit; i++)
 	{
-		if (channel->ScaleFactors[i] < 0 || channel->ScaleFactors[i] > 31)
+		if (channel->scaleFactors[i] < 0 || channel->scaleFactors[i] > 31)
 		{
 			return ERR_UNPACK_SCALE_FACTOR_OOB;
 		}
 	}
 
-	memcpy(channel->ScaleFactorsPrev, channel->ScaleFactors, sizeof(channel->ScaleFactors));
+	memcpy(channel->scaleFactorsPrev, channel->scaleFactors, sizeof(channel->scaleFactors));
 
 	return ERR_SUCCESS;
 }
@@ -70,11 +70,11 @@ At9Status ReadScaleFactors(Channel * channel, BitReaderCxt * br)
 static void ReadClcOffset(Channel* channel, BitReaderCxt* br)
 {
 	const int maxBits = 5;
-	int* sf = channel->ScaleFactors;
+	int* sf = channel->scaleFactors;
 	const int bitLength = ReadInt(br, 2) + 2;
 	const int baseValue = bitLength < maxBits ? ReadInt(br, maxBits) : 0;
 
-	for (int i = 0; i < channel->Block->ExtensionUnit; i++)
+	for (int i = 0; i < channel->block->extensionUnit; i++)
 	{
 		sf[i] = ReadInt(br, bitLength) + baseValue;
 	}
@@ -85,20 +85,20 @@ static void ReadVlcDeltaOffset(Channel* channel, BitReaderCxt* br)
 	const int weightIndex = ReadInt(br, 3);
 	const unsigned char* weights = ScaleFactorWeights[weightIndex];
 
-	int* sf = channel->ScaleFactors;
+	int* sf = channel->scaleFactors;
 	const int baseValue = ReadInt(br, 5);
 	const int bitLength = ReadInt(br, 2) + 3;
 	const HuffmanCodebook* codebook = &HuffmanScaleFactorsUnsigned[bitLength];
 
 	sf[0] = ReadInt(br, bitLength);
 
-	for (int i = 1; i < channel->Block->ExtensionUnit; i++)
+	for (int i = 1; i < channel->block->extensionUnit; i++)
 	{
 		const int delta = ReadHuffmanValue(codebook, br, 0);
 		sf[i] = (sf[i - 1] + delta) & (codebook->ValueMax - 1);
 	}
 
-	for (int i = 0; i < channel->Block->ExtensionUnit; i++)
+	for (int i = 0; i < channel->block->extensionUnit; i++)
 	{
 		sf[i] += baseValue - weights[i];
 	}
@@ -106,10 +106,10 @@ static void ReadVlcDeltaOffset(Channel* channel, BitReaderCxt* br)
 
 static void ReadVlcDistanceToBaseline(Channel* channel, BitReaderCxt* br, const int* baseline, const int baselineLength)
 {
-	int* sf = channel->ScaleFactors;
+	int* sf = channel->scaleFactors;
 	const int bitLength = ReadInt(br, 2) + 2;
 	const HuffmanCodebook* codebook = &HuffmanScaleFactorsSigned[bitLength];
-	const int unitCount = Min(channel->Block->ExtensionUnit, baselineLength);
+	const int unitCount = Min(channel->block->extensionUnit, baselineLength);
 
 	for (int i = 0; i < unitCount; i++)
 	{
@@ -117,7 +117,7 @@ static void ReadVlcDistanceToBaseline(Channel* channel, BitReaderCxt* br, const 
 		sf[i] = (baseline[i] + distance) & 31;
 	}
 
-	for (int i = unitCount; i < channel->Block->ExtensionUnit; i++)
+	for (int i = unitCount; i < channel->block->extensionUnit; i++)
 	{
 		sf[i] = ReadInt(br, 5);
 	}
@@ -125,11 +125,11 @@ static void ReadVlcDistanceToBaseline(Channel* channel, BitReaderCxt* br, const 
 
 static void ReadVlcDeltaOffsetWithBaseline(Channel* channel, BitReaderCxt* br, const int* baseline, const int baselineLength)
 {
-	int* sf = channel->ScaleFactors;
+	int* sf = channel->scaleFactors;
 	const int baseValue = ReadOffsetBinary(br, 5);
 	const int bitLength = ReadInt(br, 2) + 1;
 	const HuffmanCodebook* codebook = &HuffmanScaleFactorsUnsigned[bitLength];
-	const int unitCount = Min(channel->Block->ExtensionUnit, baselineLength);
+	const int unitCount = Min(channel->block->extensionUnit, baselineLength);
 
 	sf[0] = ReadInt(br, bitLength);
 
@@ -144,7 +144,7 @@ static void ReadVlcDeltaOffsetWithBaseline(Channel* channel, BitReaderCxt* br, c
 		sf[i] += baseValue + baseline[i];
 	}
 
-	for (int i = unitCount; i < channel->Block->ExtensionUnit; i++)
+	for (int i = unitCount; i < channel->block->extensionUnit; i++)
 	{
 		sf[i] = ReadInt(br, 5);
 	}

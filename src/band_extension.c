@@ -22,23 +22,23 @@ static const double BexMode4Multiplier[8];
 
 void ApplyBandExtension(Block* block)
 {
-	if (!block->BandExtensionEnabled || !block->HasExtensionData) return;
+	if (!block->bandExtensionEnabled || !block->hasExtensionData) return;
 
-	for (int i = 0; i < block->ChannelCount; i++)
+	for (int i = 0; i < block->channelCount; i++)
 	{
-		ApplyBandExtensionChannel(&block->Channels[i]);
+		ApplyBandExtensionChannel(&block->channels[i]);
 	}
 }
 
 static void ApplyBandExtensionChannel(Channel* channel)
 {
-	const int groupAUnit = channel->Block->QuantizationUnitCount;
-	int* scaleFactors = channel->ScaleFactors;
-	double* spectra = channel->Spectra;
+	const int groupAUnit = channel->block->quantizationUnitCount;
+	int* scaleFactors = channel->scaleFactors;
+	double* spectra = channel->spectra;
 	double scales[6];
-	int* values = channel->BexValues;
+	int* values = channel->bexValues;
 
-	const BexGroup* bexInfo = &BexGroupInfo[channel->Block->QuantizationUnitCount - 13];
+	const BexGroup* bexInfo = &BexGroupInfo[channel->block->quantizationUnitCount - 13];
 	const int bandCount = bexInfo->BandCount;
 	const int groupBUnit = bexInfo->GroupBUnit;
 	const int groupCUnit = bexInfo->GroupCUnit;
@@ -56,7 +56,7 @@ static void ApplyBandExtensionChannel(Channel* channel)
 	double groupAScale, groupBScale, groupCScale;
 	double rate, scale, mult;
 
-	switch (channel->BexMode)
+	switch (channel->bexMode)
 	{
 	case 0:
 		switch (bandCount)
@@ -174,15 +174,15 @@ static void FillHighFrequencies(double* spectra, int groupABin, int groupBBin, i
 
 static void AddNoiseToSpectrum(Channel* channel, int index, int count)
 {
-	if (!channel->Rng.Initialized)
+	if (!channel->Rng.initialized)
 	{
-		int* sf = channel->ScaleFactors;
+		int* sf = channel->scaleFactors;
 		const unsigned short seed = (unsigned short)(543 * (sf[8] + sf[12] + sf[15] + 1));
 		RngInit(&channel->Rng, seed);
 	}
 	for (int i = 0; i < count; i++)
 	{
-		channel->Spectra[i + index] = RngNext(&channel->Rng) / 65535.0 * 2.0 - 1.0;
+		channel->spectra[i + index] = RngNext(&channel->Rng) / 65535.0 * 2.0 - 1.0;
 	}
 }
 
@@ -190,21 +190,21 @@ static void RngInit(RngCxt* rng, unsigned short seed)
 {
 	const int startValue = 0x4D93 * (seed ^ (seed >> 14));
 
-	rng->StateA = (unsigned short)(3 - startValue);
-	rng->StateB = (unsigned short)(2 - startValue);
-	rng->StateC = (unsigned short)(1 - startValue);
-	rng->StateD = (unsigned short)(0 - startValue);
-	rng->Initialized = TRUE;
+	rng->stateA = (unsigned short)(3 - startValue);
+	rng->stateB = (unsigned short)(2 - startValue);
+	rng->stateC = (unsigned short)(1 - startValue);
+	rng->stateD = (unsigned short)(0 - startValue);
+	rng->initialized = TRUE;
 }
 
 static unsigned short RngNext(RngCxt* rng)
 {
-	const unsigned short t = (unsigned short)(rng->StateD ^ (rng->StateD << 5));
-	rng->StateD = rng->StateC;
-	rng->StateC = rng->StateB;
-	rng->StateB = rng->StateA;
-	rng->StateA = (unsigned short)(t ^ rng->StateA ^ ((t ^ (rng->StateA >> 5)) >> 4));
-	return rng->StateA;
+	const unsigned short t = (unsigned short)(rng->stateD ^ (rng->stateD << 5));
+	rng->stateD = rng->stateC;
+	rng->stateC = rng->stateB;
+	rng->stateB = rng->stateA;
+	rng->stateA = (unsigned short)(t ^ rng->stateA ^ ((t ^ (rng->stateA >> 5)) >> 4));
+	return rng->stateA;
 }
 
 const BexGroup BexGroupInfo[8] =

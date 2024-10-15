@@ -26,31 +26,31 @@ static int BlockTypeToChannelCount(BlockType blockType);
 
 At9Status InitDecoder(Atrac9Handle* handle, unsigned char* configData, int wlength)
 {
-	ERROR_CHECK(InitConfigData(&handle->Config, configData));
+	ERROR_CHECK(InitConfigData(&handle->config, configData));
 	ERROR_CHECK(InitFrame(handle));
-	InitMdctTables(handle->Config.FrameSamplesPower);
+	InitMdctTables(handle->config.frameSamplesPower);
 	InitHuffmanCodebooks();
 	GenerateGradientCurves();
-	handle->Wlength = wlength;
-	handle->Initialized = 1;
+	handle->wlength = wlength;
+	handle->initialized = 1;
 	return ERR_SUCCESS;
 }
 
 static At9Status InitConfigData(ConfigData* config, unsigned char* configData)
 {
-	memcpy(config->ConfigData, configData, CONFIG_DATA_SIZE);
+	memcpy(config->configData, configData, CONFIG_DATA_SIZE);
 	ERROR_CHECK(ReadConfigData(config));
 
-	config->FramesPerSuperframe = 1 << config->SuperframeIndex;
-	config->SuperframeBytes = config->FrameBytes << config->SuperframeIndex;
+	config->framesPerSuperframe = 1 << config->superframeIndex;
+	config->superframeBytes = config->frameBytes << config->superframeIndex;
 
-	config->ChannelConfig = ChannelConfigs[config->ChannelConfigIndex];
-	config->ChannelCount = config->ChannelConfig.ChannelCount;
-	config->SampleRate = SampleRates[config->SampleRateIndex];
-	config->HighSampleRate = config->SampleRateIndex > 7;
-	config->FrameSamplesPower = SamplingRateIndexToFrameSamplesPower[config->SampleRateIndex];
-	config->FrameSamples = 1 << config->FrameSamplesPower;
-	config->SuperframeSamples = config->FrameSamples * config->FramesPerSuperframe;
+	config->channelConfig = ChannelConfigs[config->channelConfigIndex];
+	config->channelCount = config->channelConfig.channelCount;
+	config->sampleRate = SampleRates[config->sampleRateIndex];
+	config->highSampleRate = config->sampleRateIndex > 7;
+	config->frameSamplesPower = SamplingRateIndexToFrameSamplesPower[config->sampleRateIndex];
+	config->frameSamples = 1 << config->frameSamplesPower;
+	config->superframeSamples = config->frameSamples * config->framesPerSuperframe;
 
 	return ERR_SUCCESS;
 }
@@ -58,14 +58,14 @@ static At9Status InitConfigData(ConfigData* config, unsigned char* configData)
 static At9Status ReadConfigData(ConfigData* config)
 {
 	BitReaderCxt br;
-	InitBitReaderCxt(&br, &config->ConfigData);
+	InitBitReaderCxt(&br, &config->configData);
 
 	const int header = ReadInt(&br, 8);
-	config->SampleRateIndex = ReadInt(&br, 4);
-	config->ChannelConfigIndex = ReadInt(&br, 3);
+	config->sampleRateIndex = ReadInt(&br, 4);
+	config->channelConfigIndex = ReadInt(&br, 3);
 	const int validationBit = ReadInt(&br, 1);
-	config->FrameBytes = ReadInt(&br, 11) + 1;
-	config->SuperframeIndex = ReadInt(&br, 2);
+	config->frameBytes = ReadInt(&br, 11) + 1;
+	config->superframeIndex = ReadInt(&br, 2);
 
 	if (header != 0xFE || validationBit != 0)
 	{
@@ -77,17 +77,17 @@ static At9Status ReadConfigData(ConfigData* config)
 
 static At9Status InitFrame(Atrac9Handle* handle)
 {
-	const int blockCount = handle->Config.ChannelConfig.BlockCount;
-	handle->Frame.Config = &handle->Config;
+	const int blockCount = handle->config.channelConfig.blockCount;
+	handle->frame.Config = &handle->config;
 	int channelNum = 0;
 
 	for (int i = 0; i < blockCount; i++)
 	{
-		ERROR_CHECK(InitBlock(&handle->Frame.Blocks[i], &handle->Frame, i));
+		ERROR_CHECK(InitBlock(&handle->frame.Blocks[i], &handle->frame, i));
 
-		for (int c = 0; c < handle->Frame.Blocks[i].ChannelCount; c++)
+		for (int c = 0; c < handle->frame.Blocks[i].channelCount; c++)
 		{
-			handle->Frame.Channels[channelNum++] = &handle->Frame.Blocks[i].Channels[c];
+			handle->frame.Channels[channelNum++] = &handle->frame.Blocks[i].channels[c];
 		}
 	}
 
@@ -96,15 +96,15 @@ static At9Status InitFrame(Atrac9Handle* handle)
 
 static At9Status InitBlock(Block* block, Frame* parentFrame, int blockIndex)
 {
-	block->Frame = parentFrame;
-	block->BlockIndex = blockIndex;
-	block->Config = parentFrame->Config;
-	block->BlockType = block->Config->ChannelConfig.Types[blockIndex];
-	block->ChannelCount = BlockTypeToChannelCount(block->BlockType);
+	block->frame = parentFrame;
+	block->blockIndex = blockIndex;
+	block->config = parentFrame->Config;
+	block->blockType = block->config->channelConfig.types[blockIndex];
+	block->channelCount = BlockTypeToChannelCount(block->blockType);
 
-	for (int i = 0; i < block->ChannelCount; i++)
+	for (int i = 0; i < block->channelCount; i++)
 	{
-		ERROR_CHECK(InitChannel(&block->Channels[i], block, i));
+		ERROR_CHECK(InitChannel(&block->channels[i], block, i));
 	}
 
 	return ERR_SUCCESS;
@@ -112,11 +112,11 @@ static At9Status InitBlock(Block* block, Frame* parentFrame, int blockIndex)
 
 static At9Status InitChannel(Channel* channel, Block* parentBlock, int channelIndex)
 {
-	channel->Block = parentBlock;
-	channel->Frame = parentBlock->Frame;
-	channel->Config = parentBlock->Config;
-	channel->ChannelIndex = channelIndex;
-	channel->Mdct.Bits = parentBlock->Config->FrameSamplesPower;
+	channel->block = parentBlock;
+	channel->frame = parentBlock->frame;
+	channel->config = parentBlock->config;
+	channel->channelIndex = channelIndex;
+	channel->mdct.bits = parentBlock->config->frameSamplesPower;
 	return ERR_SUCCESS;
 }
 

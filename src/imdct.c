@@ -5,11 +5,11 @@ static void Dct4(Mdct* mdct, double* input, double* output);
 
 void RunImdct(Mdct* mdct, double* input, double* output)
 {
-	const int size = 1 << mdct->Bits;
+	const int size = 1 << mdct->bits;
 	const int half = size / 2;
 	double dctOut[MAX_FRAME_SAMPLES];
-	const double* window = ImdctWindow[mdct->Bits - 6];
-	double* previous = mdct->ImdctPrevious;
+	const double* window = ImdctWindow[mdct->bits - 6];
+	double* previous = mdct->imdctPrevious;
 
 	Dct4(mdct, input, dctOut);
 
@@ -24,7 +24,7 @@ void RunImdct(Mdct* mdct, double* input, double* output)
 
 static void Dct4(Mdct* mdct, double* input, double* output)
 {
-	int MdctBits = mdct->Bits;
+	int MdctBits = mdct->bits;
 	int MdctSize = 1 << MdctBits;
 	const int* shuffleTable = ShuffleTables[MdctBits];
 	const double* sinTable = SinTables[MdctBits];

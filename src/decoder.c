@@ -5,7 +5,6 @@
 #include "quantization.h"
 #include "tables.h"
 #include "unpack.h"
-#include "utility.h"
 #include <stdint.h>
 #include <string.h>
 #include <limits.h>
@@ -38,9 +37,9 @@ At9Status DecodeS16(Atrac9Handle* handle, const void* audio, void* pcm, int* byt
 {
 	BitReaderCxt br;
 	InitBitReaderCxt(&br, audio);
-	ERROR_CHECK(DecodeFrame(&handle->Frame, &br));
+	ERROR_CHECK(DecodeFrame(&handle->frame, &br));
 
-	PcmFloatToS16(&handle->Frame, (int16_t*)pcm);
+	PcmFloatToS16(&handle->frame, (int16_t*)pcm);
 
 	*bytesUsed = br.Position / 8;
 	return ERR_SUCCESS;
@@ -49,9 +48,9 @@ At9Status DecodeS32(Atrac9Handle* handle, const void* audio, void* pcm, int* byt
 {
 	BitReaderCxt br;
 	InitBitReaderCxt(&br, audio);
-	ERROR_CHECK(DecodeFrame(&handle->Frame, &br));
+	ERROR_CHECK(DecodeFrame(&handle->frame, &br));
 
-	PcmFloatToS32(&handle->Frame, (int32_t*)pcm);
+	PcmFloatToS32(&handle->frame, (int32_t*)pcm);
 
 	*bytesUsed = br.Position / 8;
 	return ERR_SUCCESS;
@@ -60,9 +59,9 @@ At9Status DecodeF32(Atrac9Handle* handle, const void* audio, void* pcm, int* byt
 {
 	BitReaderCxt br;
 	InitBitReaderCxt(&br, audio);
-	ERROR_CHECK(DecodeFrame(&handle->Frame, &br));
+	ERROR_CHECK(DecodeFrame(&handle->frame, &br));
 
-	PcmFloatToF32(&handle->Frame, (float*)pcm);
+	PcmFloatToF32(&handle->frame, (float*)pcm);
 
 	*bytesUsed = br.Position / 8;
 	return ERR_SUCCESS;
@@ -71,9 +70,9 @@ At9Status DecodeF64(Atrac9Handle* handle, const void* audio, void* pcm, int* byt
 {
 	BitReaderCxt br;
 	InitBitReaderCxt(&br, audio);
-	ERROR_CHECK(DecodeFrame(&handle->Frame, &br));
+	ERROR_CHECK(DecodeFrame(&handle->frame, &br));
 
-	PcmFloatToF64(&handle->Frame, (double*)pcm);
+	PcmFloatToF64(&handle->frame, (double*)pcm);
 
 	*bytesUsed = br.Position / 8;
 	return ERR_SUCCESS;
@@ -83,7 +82,7 @@ static At9Status DecodeFrame(Frame* frame, BitReaderCxt* br)
 {
 	ERROR_CHECK(UnpackFrame(frame, br));
 
-	for (int i = 0; i < frame->Config->ChannelConfig.BlockCount; i++)
+	for (int i = 0; i < frame->Config->channelConfig.blockCount; i++)
 	{
 		Block* block = &frame->Blocks[i];
 
@@ -99,8 +98,8 @@ static At9Status DecodeFrame(Frame* frame, BitReaderCxt* br)
 
 void PcmFloatToS16(Frame* frame, int16_t* pcmOut)
 {
-	const int channelCount = frame->Config->ChannelCount;
-	const int sampleCount = frame->Config->FrameSamples;
+	const int channelCount = frame->Config->channelCount;
+	const int sampleCount = frame->Config->frameSamples;
 	Channel** channels = frame->Channels;
 	int i = 0;
 
@@ -108,15 +107,15 @@ void PcmFloatToS16(Frame* frame, int16_t* pcmOut)
 	{
 		for (int ch = 0; ch < channelCount; ch++, i++)
 		{
-			pcmOut[i] = ClampS16(RoundDouble(channels[ch]->Pcm[smpl]));
+			pcmOut[i] = ClampS16(RoundDouble(channels[ch]->pcm[smpl]));
 		}
 	}
 }
 
 void PcmFloatToS32(Frame* frame, int32_t* pcmOut)
 {
-	const int channelCount = frame->Config->ChannelCount;
-	const int sampleCount = frame->Config->FrameSamples;
+	const int channelCount = frame->Config->channelCount;
+	const int sampleCount = frame->Config->frameSamples;
 	Channel** channels = frame->Channels;
 	int i = 0;
 
@@ -124,15 +123,15 @@ void PcmFloatToS32(Frame* frame, int32_t* pcmOut)
 	{
 		for (int ch = 0; ch < channelCount; ch++, i++)
 		{
-			pcmOut[i] = RoundDouble(channels[ch]->Pcm[smpl]);
+			pcmOut[i] = RoundDouble(channels[ch]->pcm[smpl]);
 		}
 	}
 }
 
 void PcmFloatToF32(Frame* frame, float* pcmOut)
 {
-	const int channelCount = frame->Config->ChannelCount;
-	const int sampleCount = frame->Config->FrameSamples;
+	const int channelCount = frame->Config->channelCount;
+	const int sampleCount = frame->Config->frameSamples;
 	Channel** channels = frame->Channels;
 	int i = 0;
 
@@ -140,15 +139,15 @@ void PcmFloatToF32(Frame* frame, float* pcmOut)
 	{
 		for (int ch = 0; ch < channelCount; ch++, i++)
 		{
-			pcmOut[i] = (float)channels[ch]->Pcm[smpl];
+			pcmOut[i] = (float)channels[ch]->pcm[smpl];
 		}
 	}
 }
 
 void PcmFloatToF64(Frame* frame, double* pcmOut)
 {
-	const int channelCount = frame->Config->ChannelCount;
-	const int sampleCount = frame->Config->FrameSamples;
+	const int channelCount = frame->Config->channelCount;
+	const int sampleCount = frame->Config->frameSamples;
 	Channel** channels = frame->Channels;
 	int i = 0;
 
@@ -156,44 +155,44 @@ void PcmFloatToF64(Frame* frame, double* pcmOut)
 	{
 		for (int ch = 0; ch < channelCount; ch++, i++)
 		{
-			pcmOut[i] = channels[ch]->Pcm[smpl];
+			pcmOut[i] = channels[ch]->pcm[smpl];
 		}
 	}
 }
 
 static void ImdctBlock(Block* block)
 {
-	for (int i = 0; i < block->ChannelCount; i++)
+	for (int i = 0; i < block->channelCount; i++)
 	{
-		Channel* channel = &block->Channels[i];
+		Channel* channel = &block->channels[i];
 
-		RunImdct(&channel->Mdct, channel->Spectra, channel->Pcm);
+		RunImdct(&channel->mdct, channel->spectra, channel->pcm);
 	}
 }
 
 static void ApplyIntensityStereo(Block* block)
 {
-	if (block->BlockType != Stereo) return;
+	if (block->blockType != Stereo) return;
 
-	const int totalUnits = block->QuantizationUnitCount;
-	const int stereoUnits = block->StereoQuantizationUnit;
+	const int totalUnits = block->quantizationUnitCount;
+	const int stereoUnits = block->stereoQuantizationUnit;
 	if (stereoUnits >= totalUnits) return;
 
-	Channel* source = &block->Channels[block->PrimaryChannelIndex == 0 ? 0 : 1];
-	Channel* dest = &block->Channels[block->PrimaryChannelIndex == 0 ? 1 : 0];
+	Channel* source = &block->channels[block->primaryChannelIndex == 0 ? 0 : 1];
+	Channel* dest = &block->channels[block->primaryChannelIndex == 0 ? 1 : 0];
 
 	for (int i = stereoUnits; i < totalUnits; i++)
 	{
-		const int sign = block->JointStereoSigns[i];
+		const int sign = block->jointStereoSigns[i];
 		for (int sb = QuantUnitToCoeffIndex[i]; sb < QuantUnitToCoeffIndex[i + 1]; sb++)
 		{
 			if (sign > 0)
 			{
-				dest->Spectra[sb] = -source->Spectra[sb];
+				dest->spectra[sb] = -source->spectra[sb];
 			}
 			else
 			{
-				dest->Spectra[sb] = source->Spectra[sb];
+				dest->spectra[sb] = source->spectra[sb];
 			}
 		}
 	}
@@ -201,13 +200,13 @@ static void ApplyIntensityStereo(Block* block)
 
 int GetCodecInfo(Atrac9Handle* handle, CodecInfo * pCodecInfo)
 {
-	pCodecInfo->Channels = handle->Config.ChannelCount;
-	pCodecInfo->ChannelConfigIndex = handle->Config.ChannelConfigIndex;
-	pCodecInfo->SamplingRate = handle->Config.SampleRate;
-	pCodecInfo->SuperframeSize = handle->Config.SuperframeBytes;
-	pCodecInfo->FramesInSuperframe = handle->Config.FramesPerSuperframe;
-	pCodecInfo->FrameSamples = handle->Config.FrameSamples;
-	pCodecInfo->Wlength = handle->Wlength;
-	memcpy(pCodecInfo->ConfigData, handle->Config.ConfigData, CONFIG_DATA_SIZE);
+	pCodecInfo->channels = handle->config.channelCount;
+	pCodecInfo->channelConfigIndex = handle->config.channelConfigIndex;
+	pCodecInfo->samplingRate = handle->config.sampleRate;
+	pCodecInfo->superframeSize = handle->config.superframeBytes;
+	pCodecInfo->framesInSuperframe = handle->config.framesPerSuperframe;
+	pCodecInfo->frameSamples = handle->config.frameSamples;
+	pCodecInfo->wlength = handle->wlength;
+	memcpy(pCodecInfo->configData, handle->config.configData, CONFIG_DATA_SIZE);
 	return ERR_SUCCESS;
 }
